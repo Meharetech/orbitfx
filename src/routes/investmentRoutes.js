@@ -3,7 +3,8 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { 
     purchaseInvestment, 
-    getInvestmentHistory 
+    getInvestmentHistory,
+    requestInvestmentWithdrawal
 } = require('../controllers/investmentController');
 
 // @route   POST /api/investments/purchase
@@ -15,5 +16,10 @@ router.post('/purchase', protect, purchaseInvestment);
 // @desc    Get investment history
 // @access  Private
 router.get('/history', protect, getInvestmentHistory);
+
+// @route   POST /api/investments/withdraw
+// @desc    Request withdrawal of principal investment capital
+// @access  Private
+router.post('/withdraw', protect, requestInvestmentWithdrawal);
 
 module.exports = router;

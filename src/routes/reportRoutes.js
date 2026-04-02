@@ -17,15 +17,7 @@ const {
 // @access  Private
 router.get('/dashboard-stats', protect, getDashboardStats);
 
-// @route   POST /api/reports/preview-roi
-// @desc    Admin previews distribution
-// @access  Private (Admin Only)
-router.post('/preview-roi', protect, previewRoiDistribution);
-
-// @route   POST /api/reports/distribute-roi
-// @desc    Admin manually triggers daily ROI for all active investments
-// @access  Private (Admin Only)
-router.post('/distribute-roi', protect, distributeRoiManual);
+// Distribution Logic moved to Admin Routes for security
 
 // @route   GET /api/reports/direct-reward
 // @desc    Get full direct referral reward history for logged-in user
@@ -40,7 +32,7 @@ router.get('/direct-reward', protect, async (req, res) => {
                 qualified: false,
                 totalEarned: 0,
                 paidCount: 0,
-                remaining: 12,
+                remaining: 15,
                 isCompleted: false,
                 payments: [],
                 nextPaymentDate: null,

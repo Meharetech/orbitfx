@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Investment = require('../models/Investment');
+const InvestmentWithdrawal = require('../models/InvestmentWithdrawal');
 
 // @route   POST /api/investments/purchase
 // @desc    Purchase a portfolio investment (must be activated first)
@@ -68,3 +69,33 @@ exports.getInvestmentHistory = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+// @route   POST /api/investments/withdraw
+// @desc    Request withdrawal of principal investment capital
+// @access  Private
+exports.requestInvestmentWithdrawal = async (req, res) => {
+    try {
+        const { investmentId } = req.body;
+        const userId = req.user._id;
+
+        const investment = await Investment.findOne({ _id: investmentId, userId });
+        if (!investment) return res.status(404).json({ message: 'Investment not found.' });
+        if (investment.status !== 'Active') return res.status(400).json({ message: 'Only active investments can be withdrawn.' });
+
+        // Check for existing pending request
+        const existingRequest = await InvestmentWithdrawal.findOne({ investmentId, status: 'Pending' });
+        if (existingRequest) return res.status(400).json({ message: 'A withdrawal request is already pending for this investment.' });
+
+        const withdrawalRequest = await InvestmentWithdrawal.create({
+            userId,
+            investmentId,
+            amount: investment.amount
+        });
+
+        res.json({ message: 'Capital withdrawal request submitted successfully.', request: withdrawalRequest });
+    } catch (err) {
+        console.error('Request investment withdrawal error:', err);
+        res.status(500).json({ message: 'Server error during liquidation request.' });
+    }
+};
+
+module.exports = exports;

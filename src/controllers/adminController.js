@@ -3,6 +3,8 @@ const Investment = require('../models/Investment');
 const BotActivation = require('../models/BotActivation');
 const DailyProfit = require('../models/DailyProfit');
 const DailyLevelRoi = require('../models/DailyLevelRoi');
+const InvestmentWithdrawal = require('../models/InvestmentWithdrawal');
+const AdminAdjustment = require('../models/AdminAdjustment');
 
 // @route   GET /api/admin/dashboard-stats
 // @desc    Get global stats for admin dashboard
@@ -133,16 +135,29 @@ exports.getNetworkAnalysis = async (req, res) => {
     try {
         const users = await User.find().select('-password').sort({ createdAt: -1 });
         
-        const analysis = [];
+         const analysis = [];
         for (const u of users) {
              const directs = await User.find({ sponsorId: u._id }).select('username balance isActivated createdAt');
              
-             // Get total investment of these directs
-             const directIds = directs.map(d => d._id);
-             const investments = await Investment.aggregate([
-                { $match: { userId: { $in: directIds }, status: 'Active' } },
-                { $group: { _id: null, total: { $sum: '$amount' } } }
-             ]);
+             // Get detailed stats for each direct
+             const directDetails = [];
+             for (const d of directs) {
+                const dInvs = await Investment.aggregate([
+                    { $match: { userId: d._id, status: 'Active' } },
+                    { $group: { _id: null, total: { $sum: '$amount' } } }
+                ]);
+                directDetails.push({
+                    id: d._id,
+                    username: d.username,
+                    balance: d.balance,
+                    isActivated: d.isActivated,
+                    dateJoined: d.createdAt,
+                    totalInvestedAmount: dInvs.length > 0 ? dInvs[0].total : 0
+                });
+             }
+             
+             // Get collective investment of these directs
+             const collectiveTotal = directDetails.reduce((sum, d) => sum + d.totalInvestedAmount, 0);
 
              analysis.push({
                 id: u._id,
@@ -153,13 +168,8 @@ exports.getNetworkAnalysis = async (req, res) => {
                 isActivated: u.isActivated,
                 createdAt: u.createdAt,
                 directCount: directs.length,
-                directs: directs.map(d => ({
-                    username: d.username,
-                    balance: d.balance,
-                    isActivated: d.isActivated,
-                    dateJoined: d.createdAt
-                })),
-                directInvestmentTotal: investments.length > 0 ? investments[0].total : 0
+                directs: directDetails,
+                directInvestmentTotal: collectiveTotal
              });
         }
 
@@ -216,7 +226,7 @@ exports.getUserMatrixAnalysis = async (req, res) => {
 };
 
 // @route   GET /api/admin/latest-users
-// @desc    Get latest 100 users with details
+// @desc    Get latest 100 users with aggregated investment stats
 // @access  Private (Admin)
 exports.getLatestUsers = async (req, res) => {
     try {
@@ -225,9 +235,188 @@ exports.getLatestUsers = async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(100);
             
-        res.json(users);
+        const detailedUsers = [];
+        for (const user of users) {
+            const activeInvestments = await Investment.find({ userId: user._id, status: 'Active' });
+            const totalInvested = activeInvestments.reduce((sum, inv) => sum + inv.amount, 0);
+            
+            detailedUsers.push({
+                ...user.toObject(),
+                activeInvestmentCount: activeInvestments.length,
+                totalInvestedAmount: totalInvested
+            });
+        }
+            
+        res.json(detailedUsers);
     } catch (err) {
         console.error('Latest users error:', err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error fetching registry.' });
     }
 };
+
+// @route   POST /api/admin/users/:id/toggle-status
+// @desc    Enable or Disable user account nodes
+// @access  Private (Admin)
+exports.toggleUserStatus = async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        user.isActive = !user.isActive;
+        await user.save();
+
+        res.json({ message: `User account ${user.isActive ? 'enabled' : 'disabled'} successfully.`, isActive: user.isActive });
+    } catch (err) {
+        console.error('Toggle status error:', err);
+        res.status(500).json({ message: 'Server error updating user status.' });
+    }
+};
+
+// @route   POST /api/admin/users/:id/adjust-balance
+// @desc    Manually withdraw or deposit funds (Wallet or Investment)
+// @access  Private (Admin)
+exports.manualBalanceAdjustment = async (req, res) => {
+    try {
+        const { amount, type, target, note } = req.body; // target: 'Wallet' or 'Investment'
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'User not found.' });
+
+        const adjustmentAmount = Number(amount);
+        let previousVal = target === 'Wallet' ? user.balance : 0; // Simplified for investment
+        let newVal = 0;
+
+        if (target === 'Wallet') {
+            if (type === 'Withdraw') {
+                user.balance -= adjustmentAmount;
+            } else {
+                user.balance += adjustmentAmount;
+                user.totalEarned += adjustmentAmount;
+            }
+            newVal = user.balance;
+            await user.save();
+        } else {
+            // Target: Investment Portfolio
+            if (type === 'Withdraw') {
+                // Find active investments to reduce
+                let remainingToDeduct = adjustmentAmount;
+                const activeInvs = await Investment.find({ userId: user._id, status: 'Active' }).sort({ createdAt: -1 });
+
+                for (const inv of activeInvs) {
+                    if (remainingToDeduct <= 0) break;
+                    if (inv.amount > remainingToDeduct) {
+                        inv.amount -= remainingToDeduct;
+                        remainingToDeduct = 0;
+                        await inv.save();
+                    } else {
+                        remainingToDeduct -= inv.amount;
+                        inv.amount = 0;
+                        inv.status = 'Completed';
+                        await inv.save();
+                    }
+                }
+            } else {
+                // Admin Deposit into Investment (Create new investment node)
+                const newInv = new Investment({
+                    userId: user._id,
+                    amount: adjustmentAmount,
+                    status: 'Active'
+                });
+                await newInv.save();
+            }
+            newVal = adjustmentAmount; // Log the change amount as the "new" value for investment nodes
+        }
+
+        // Save History
+        const log = new AdminAdjustment({
+            userId: user._id,
+            amount: adjustmentAmount,
+            type,
+            target,
+            note,
+            previousBalance: previousVal,
+            newBalance: newVal
+        });
+        await log.save();
+
+        res.json({ message: `${target} ${type.toLowerCase()}ed successfully.`, newBalance: newVal });
+    } catch (err) {
+        console.error('Balance adjustment error:', err);
+        res.status(500).json({ message: 'Server error adjusting funds.' });
+    }
+};
+
+// @route   GET /api/admin/adjustments
+// @desc    Get all administrative adjustment records (History)
+// @access  Private (Admin)
+exports.getAdjustmentHistory = async (req, res) => {
+    try {
+        const history = await AdminAdjustment.find()
+            .populate('userId', 'username email')
+            .sort({ createdAt: -1 });
+        res.json(history);
+    } catch (err) {
+        console.error('Adjustment history error:', err);
+        res.status(500).json({ message: 'Server error fetching audit history.' });
+    }
+};
+// @route   GET /api/admin/investment-withdrawals
+// @desc    Get all investment withdrawal requests
+// @access  Private (Admin)
+exports.getInvestmentWithdrawals = async (req, res) => {
+    try {
+        const requests = await InvestmentWithdrawal.find()
+            .populate('userId', 'username fullName balance')
+            .populate('investmentId', 'amount createdAt status')
+            .sort({ createdAt: -1 });
+
+        res.json(requests);
+    } catch (err) {
+        console.error('Get admin investment withdrawals error:', err);
+        res.status(500).json({ message: 'Server error fetching liquidation requests.' });
+    }
+};
+
+// @route   POST /api/admin/investment-withdrawals/process
+// @desc    Approve or Reject an investment withdrawal
+// @access  Private (Admin)
+exports.processInvestmentWithdrawal = async (req, res) => {
+    try {
+        const { requestId, status, adminNote } = req.body;
+
+        if (!['Approved', 'Rejected'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status update.' });
+        }
+
+        const request = await InvestmentWithdrawal.findById(requestId);
+        if (!request) return res.status(404).json({ message: 'Request not found.' });
+        if (request.status !== 'Pending') return res.status(400).json({ message: 'Request already processed.' });
+
+        const investment = await Investment.findById(request.investmentId);
+        
+        if (status === 'Approved') {
+            if (!investment) return res.status(404).json({ message: 'Original investment not found.' });
+            
+            const user = await User.findById(request.userId);
+            if (!user) return res.status(404).json({ message: 'User not found.' });
+
+            // 1. Credit User Balance
+            user.balance += request.amount;
+            await user.save();
+
+            // 2. Mark Investment as Completed
+            investment.status = 'Completed';
+            await investment.save();
+        }
+
+        request.status = status;
+        request.adminNote = adminNote;
+        await request.save();
+
+        res.json({ message: `Investment withdrawal ${status.toLowerCase()} successfully.`, request });
+    } catch (err) {
+        console.error('Process investment withdrawal error:', err);
+        res.status(500).json({ message: 'Server error processing liquidation.' });
+    }
+};
+
+module.exports = exports;

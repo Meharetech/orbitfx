@@ -1,25 +1,37 @@
 const express = require('express');
 const router = express.Router();
 const { protect, adminProtect } = require('../middleware/authMiddleware');
-const { getAdminDashboardStats, getRoiDistributionReport, getNetworkAnalysis, getUserMatrixAnalysis, getLatestUsers } = require('../controllers/adminController');
+const { previewRoiDistribution, distributeRoiManual } = require('../controllers/tradingProfitController');
+const { 
+    getAdminDashboardStats, 
+    getRoiDistributionReport, 
+    getNetworkAnalysis, 
+    getUserMatrixAnalysis, 
+    getLatestUsers, 
+    toggleUserStatus,
+    manualBalanceAdjustment,
+    getAdjustmentHistory,
+    getInvestmentWithdrawals, 
+    processInvestmentWithdrawal 
+} = require('../controllers/adminController');
 
 // @route   GET /api/admin/dashboard-stats
 // @desc    Get global stats for admin dashboard
 // @access  Private (Admin)
 router.get('/dashboard-stats', adminProtect, getAdminDashboardStats);
 
-// @route   GET /api/admin/roi-reports
-// @desc    Get daily ROI reports
+// @route   GET /api/admin/roi-report
+// @desc    Get ROI distribution report
 // @access  Private (Admin)
-router.get('/roi-reports', adminProtect, getRoiDistributionReport);
+router.get('/roi-report', adminProtect, getRoiDistributionReport);
 
 // @route   GET /api/admin/network-analysis
-// @desc    Get network referral analytics
+// @desc    Get network growth analysis
 // @access  Private (Admin)
 router.get('/network-analysis', adminProtect, getNetworkAnalysis);
 
 // @route   GET /api/admin/user-matrix/:id
-// @desc    Get 20-level matrix summary
+// @desc    Get matrix analysis for a user
 // @access  Private (Admin)
 router.get('/user-matrix/:id', adminProtect, getUserMatrixAnalysis);
 
@@ -27,5 +39,16 @@ router.get('/user-matrix/:id', adminProtect, getUserMatrixAnalysis);
 // @desc    Get latest 100 users
 // @access  Private (Admin)
 router.get('/latest-users', adminProtect, getLatestUsers);
+router.post('/users/:id/toggle-status', adminProtect, toggleUserStatus);
+router.post('/users/:id/adjust-balance', adminProtect, manualBalanceAdjustment);
+router.get('/adjustment-history', adminProtect, getAdjustmentHistory);
+
+// ── Investment Payouts ─────────────────────────────
+router.post('/investments/preview-roi', adminProtect, previewRoiDistribution);
+router.post('/investments/distribute-roi', adminProtect, distributeRoiManual);
+
+// ── Investment Liquidation ─────────────────────────────
+router.get('/investment-withdrawals', protect, getInvestmentWithdrawals);
+router.post('/investment-withdrawals/process', protect, processInvestmentWithdrawal);
 
 module.exports = router;

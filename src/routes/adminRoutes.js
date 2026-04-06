@@ -20,10 +20,10 @@ const {
 // @access  Private (Admin)
 router.get('/dashboard-stats', adminProtect, getAdminDashboardStats);
 
-// @route   GET /api/admin/roi-report
+// @route   GET /api/admin/roi-reports
 // @desc    Get ROI distribution report
 // @access  Private (Admin)
-router.get('/roi-report', adminProtect, getRoiDistributionReport);
+router.get('/roi-reports', adminProtect, getRoiDistributionReport);
 
 // @route   GET /api/admin/network-analysis
 // @desc    Get network growth analysis
@@ -48,7 +48,7 @@ router.post('/investments/preview-roi', adminProtect, previewRoiDistribution);
 router.post('/investments/distribute-roi', adminProtect, distributeRoiManual);
 
 // ── Investment Liquidation ─────────────────────────────
-router.get('/investment-withdrawals', protect, getInvestmentWithdrawals);
-router.post('/investment-withdrawals/process', protect, processInvestmentWithdrawal);
+router.get('/investment-withdrawals', adminProtect, getInvestmentWithdrawals);
+router.post('/investment-withdrawals/process', adminProtect, processInvestmentWithdrawal);
 
 module.exports = router;

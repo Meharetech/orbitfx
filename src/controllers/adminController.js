@@ -319,7 +319,8 @@ exports.manualBalanceAdjustment = async (req, res) => {
                 const newInv = new Investment({
                     userId: user._id,
                     amount: adjustmentAmount,
-                    status: 'Active'
+                    status: 'Active',
+                    adminNote: note || 'Administrative System Activation'
                 });
                 await newInv.save();
             }
@@ -406,10 +407,21 @@ exports.processInvestmentWithdrawal = async (req, res) => {
             // 2. Mark Investment as Completed
             investment.status = 'Completed';
             await investment.save();
+        } else if (status === 'Rejected' && req.body.forceTerminate) {
+            // "Remove funds" logic — close the investment without crediting user balance
+            if (investment) {
+                investment.status = 'Completed';
+                await investment.save();
+            }
+        }
+
+        if (investment) {
+            investment.adminNote = adminNote || 'Administrative decision rendered.';
+            await investment.save();
         }
 
         request.status = status;
-        request.adminNote = adminNote;
+        request.adminNote = adminNote || 'Administrative decision rendered.';
         await request.save();
 
         res.json({ message: `Investment withdrawal ${status.toLowerCase()} successfully.`, request });

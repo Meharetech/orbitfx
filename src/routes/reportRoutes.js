@@ -114,6 +114,7 @@ router.get('/pair-reward', protect, async (req, res) => {
                 leftCount:   req.user.leftTeamCount || 0,
                 rightCount:  req.user.rightTeamCount || 0,
                 payments: [],
+                claimedOneTimeRewards: [],
                 rankPlans
             });
         }
@@ -128,6 +129,7 @@ router.get('/pair-reward', protect, async (req, res) => {
             nextPaymentDate: reward.nextPaymentDate,
             isCompleted:     reward.isCompleted,
             payments:        reward.payments,
+            claimedOneTimeRewards: reward.claimedOneTimeRewards || [],
             rankPlans
         });
     } catch (err) {

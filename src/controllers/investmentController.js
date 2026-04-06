@@ -40,7 +40,8 @@ exports.purchaseInvestment = async (req, res) => {
         const investment = await Investment.create({
             userId: user._id,
             amount: amount,
-            status: 'Active'
+            status: 'Active',
+            adminNote: 'Standard Portfolio Protocol'
         });
 
         res.status(201).json({ 

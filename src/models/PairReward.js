@@ -2,18 +2,18 @@ const mongoose = require('mongoose');
 
 // Rank definitions — pairs required & monthly reward
 const RANK_PLANS = [
-    { rank: 'STAR',             pairs: 10,      monthlyReward: 30,     color: '#60a5fa' },
-    { rank: 'SILVER',           pairs: 30,      monthlyReward: 60,     color: '#94a3b8' },
-    { rank: 'GOLD',             pairs: 100,     monthlyReward: 200,    color: '#f59e0b' },
-    { rank: 'PEARL',            pairs: 250,     monthlyReward: 300,    color: '#e879f9' },
-    { rank: 'PLATINUM',         pairs: 500,     monthlyReward: 600,    color: '#67e8f9' },
-    { rank: 'EMERALD',          pairs: 1200,    monthlyReward: 1600,   color: '#4ade80' },
-    { rank: 'DIAMOND',          pairs: 3000,    monthlyReward: 3000,   color: '#818cf8' },
-    { rank: 'ROYAL DIAMOND',    pairs: 7000,    monthlyReward: 6000,   color: '#c084fc' },
-    { rank: 'KOHINOOR',         pairs: 15000,   monthlyReward: 10000,  color: '#f472b6' },
-    { rank: 'CROWN',            pairs: 30000,   monthlyReward: 20000,  color: '#fb923c' },
-    { rank: 'AMBASSADOR',       pairs: 70000,   monthlyReward: 40000,  color: '#34d399' },
-    { rank: 'CROWN AMBASSADOR', pairs: 150000,  monthlyReward: 100000, color: '#fbbf24' },
+    { rank: 'STAR',             pairs: 10,      monthlyReward: 30,     oneTimeReward: 100,     color: '#60a5fa' },
+    { rank: 'SILVER',           pairs: 30,      monthlyReward: 60,     oneTimeReward: 300,     color: '#94a3b8' },
+    { rank: 'GOLD',             pairs: 100,     monthlyReward: 200,    oneTimeReward: 1000,    color: '#f59e0b' },
+    { rank: 'PEARL',            pairs: 250,     monthlyReward: 300,    oneTimeReward: 2500,    color: '#e879f9' },
+    { rank: 'PLATINUM',         pairs: 500,     monthlyReward: 600,    oneTimeReward: 5000,    color: '#67e8f9' },
+    { rank: 'EMERALD',          pairs: 1200,    monthlyReward: 1600,   oneTimeReward: 10000,   color: '#4ade80' },
+    { rank: 'DIAMOND',          pairs: 3000,    monthlyReward: 3000,   oneTimeReward: 25000,   color: '#818cf8' },
+    { rank: 'ROYAL DIAMOND',    pairs: 7000,    monthlyReward: 6000,   oneTimeReward: 50000,   color: '#c084fc' },
+    { rank: 'KOHINOOR',         pairs: 15000,   monthlyReward: 10000,  oneTimeReward: 100000,  color: '#f472b6' },
+    { rank: 'CROWN',            pairs: 30000,   monthlyReward: 20000,  oneTimeReward: 200000,  color: '#fb923c' },
+    { rank: 'AMBASSADOR',       pairs: 70000,   monthlyReward: 40000,  oneTimeReward: 500000,  color: '#34d399' },
+    { rank: 'CROWN AMBASSADOR', pairs: 150000,  monthlyReward: 100000, oneTimeReward: 1000000, color: '#fbbf24' },
 ];
 
 const pairRewardSchema = new mongoose.Schema({
@@ -27,6 +27,7 @@ const pairRewardSchema = new mongoose.Schema({
     nextPaymentDate:{ type: Date },
     paidCount:      { type: Number, default: 0 },  // How many months paid
     isCompleted:    { type: Boolean, default: false },
+    claimedOneTimeRewards: [{ type: String }], // List of rank titles for which one-time prize was paid
     payments: [{
         rank:        { type: String },
         amount:      { type: Number },

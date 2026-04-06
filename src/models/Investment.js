@@ -5,6 +5,7 @@ const investmentSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     status: { type: String, default: 'Active' }, // Active, Completed
     dailyProfit: { type: Number, default: 0 }, // For future ROI tracking
+    adminNote: { type: String, default: null },
     createdAt: { type: Date, default: Date.now }
 });
 

@@ -28,17 +28,16 @@ exports.previewRoiDistribution = async (req, res) => {
 
         for (const inv of activeInvestments) {
             const amount = inv.amount;
-            const personalProfit = amount * dailyRate;
-            totalPersonalProfit += personalProfit;
-            totalLevelSharing += (personalProfit * 0.25);
+            const theoreticalProfit = amount * dailyRate;
+            totalLevelSharing += (theoreticalProfit * 0.25);
             userCount++;
         }
 
         res.json({
             userCount,
-            totalPersonalProfit,
+            totalPersonalProfit: 0,
             totalLevelSharing,
-            totalSystemOutflow: totalPersonalProfit + totalLevelSharing,
+            totalSystemOutflow: totalLevelSharing,
             percentage
         });
     } catch (err) {
@@ -69,25 +68,20 @@ exports.distributeRoiManual = async (req, res) => {
                 const user = await User.findById(investment.userId);
                 if (!user) continue;
 
-                const profitAmount = investment.amount * dailyRate;
+                const theoreticalProfit = investment.amount * dailyRate;
+                const levelSharePool = theoreticalProfit * 0.25; 
 
-                // 1. Credit User balance
-                user.balance += profitAmount;
-                user.totalEarned += profitAmount;
-                await user.save();
-
-                // 2. Personal Log
+                // 2. Personal Log (Archived with 0 for reporting continuity)
                 await DailyProfit.create({
                     userId: user._id,
                     investmentId: investment._id,
-                    amount: profitAmount,
+                    amount: 0,
                     percentage: percentage,
                     batchId: batchId
                 });
 
-                // 3. Level Distribution
-                const levelSharePool = profitAmount * 0.25; 
-                await distributeTradingLevelRoi(user, levelSharePool, profitAmount, batchId);
+                // Execute Level Distribution only (Personal ROI decommissioned per protocol)
+                await distributeTradingLevelRoi(user, levelSharePool, theoreticalProfit, batchId);
                 
             } catch (userErr) {
                 console.error(`[Admin] ROI Err ${investment._id}:`, userErr.message);

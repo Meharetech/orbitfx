@@ -76,8 +76,8 @@ const activateAccount = async (req, res) => {
             if (sponsor && !sponsor.qualifiedForDirectReward) {
 
                 const joinDate          = new Date(sponsor.createdAt);
-                const thirtyDaysInMs    = 30 * 24 * 60 * 60 * 1000;
-                const withinWindow      = (Date.now() - joinDate.getTime()) <= thirtyDaysInMs;
+                const fifteenDaysInMs   = 15 * 24 * 60 * 60 * 1000;
+                const withinWindow      = (Date.now() - joinDate.getTime()) <= fifteenDaysInMs;
 
                 if (withinWindow) {
                     // Check if this user is L or R direct child of sponsor

@@ -89,23 +89,64 @@ const handleRankUpgrade = async (user, rankPlan) => {
             });
         } else {
             // Rank upgraded — reset payment cycle for THE NEW higher rank
-            // The monthly reward amount change is handled during the next payment or immediate credit
             rewardDoc.currentRank     = rankPlan.rank;
             rewardDoc.totalPairs      = user.totalPairs;
             rewardDoc.isRewarded      = true;
             rewardDoc.nextPaymentDate = nextPayment;
             rewardDoc.isCompleted     = false;
-            // Note: We don't reset paidCount if it's a promotion, 
-            // but the monthly system usually allows 12 payments PER RANK.
-            // Let's reset paidCount so they get 12 new payments for the higher rank.
-            rewardDoc.paidCount = 0;
+            rewardDoc.paidCount       = 0;
             await rewardDoc.save();
+        }
+
+        // --- NEW LOGIC: CREDIT ONE-TIME REWARD ---
+        // Check for skipped ranks or ensure current rank reward is paid
+        const allRanks = RANK_PLANS;
+        const currentRankIdx = allRanks.findIndex(p => p.rank === rankPlan.rank);
+        
+        for (let i = 0; i <= currentRankIdx; i++) {
+            const plan = allRanks[i];
+            if (!rewardDoc.claimedOneTimeRewards.includes(plan.rank)) {
+                console.log(`[PairReward] Awarding one-time prize for ${plan.rank} ($${plan.oneTimeReward}) to ${user.username}`);
+                await creditOneTimeRankReward(rewardDoc, plan.oneTimeReward, plan.rank);
+            }
         }
 
         // Credit first payment of the NEW RANK immediately
         await creditPairRewardInstallment(rewardDoc, rankPlan.monthlyReward, rankPlan.rank);
     } catch (err) {
         console.error('[PairReward] handleRankUpgrade error:', err);
+    }
+};
+
+/**
+ * Helper: Credit the One-Time Rank Achievement Prize
+ */
+const creditOneTimeRankReward = async (rewardDoc, amount, rank) => {
+    try {
+        const user = await User.findById(rewardDoc.userId);
+        if (!user) return;
+
+        // 1. Update User Balance
+        user.balance += amount;
+        user.totalEarned += amount;
+        await user.save();
+
+        // 2. Track as claimed
+        rewardDoc.claimedOneTimeRewards.push(rank);
+        
+        // 3. Optional: Add to payments history or a special one-time logs
+        // Using existing payments array but identifying as one-time
+        if (!rewardDoc.payments) rewardDoc.payments = [];
+        rewardDoc.payments.push({ 
+            rank, 
+            amount, 
+            paidAt: new Date(), 
+            month: 0 // Using 0 to denote One-Time / Non-Installment
+        });
+
+        await rewardDoc.save();
+    } catch (err) {
+        console.error('[PairReward] creditOneTimeRankReward error:', err);
     }
 };
 

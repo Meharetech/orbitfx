@@ -96,13 +96,14 @@ exports.getTreeView = async (req, res) => {
         const buildTree = async (nodeId, depth = 0) => {
             if (!nodeId || depth > 5) return null; // Limit depth for UI performance
             
-            const user = await User.findById(nodeId).select('username fullName referralCode leftChild rightChild position isActivated activationExpiry');
+            const user = await User.findById(nodeId).select('username fullName phone referralCode leftChild rightChild position isActivated activationExpiry');
             if(!user) return null;
 
             return {
                 id: user._id,
                 name: user.fullName,
                 username: user.username,
+                phone: user.phone,
                 referralCode: user.referralCode,
                 position: user.position,
                 isActivated: user.isActivated,

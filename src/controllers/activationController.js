@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Activation = require('../models/Activation');
 const DirectReward = require('../models/DirectReward');
+const ReferralIncome = require('../models/ReferralIncome');
 const { updatePairCountsForAncestors } = require('./pairRewardController');
 
 // ─── Credit $10 to sponsor & log payment ─────────────────────────────────────
@@ -60,8 +61,10 @@ const activateAccount = async (req, res) => {
         await user.save();
 
         // 🎉 NEW: Update Pair Counts for ALL ancestors in the binary tree
-        // This calculates left/right team counts and checks for rank upgrades ($30-$100k)
         await updatePairCountsForAncestors(user);
+
+        // 🚀 NEW: Distribute 35% Referral Income (20 Levels)
+        await distributeActivationCommission(user, ACTIVATION_COST);
 
         // Log activation record
         await Activation.create({
@@ -145,6 +148,65 @@ const getDirectRewardStatus = async (req, res) => {
     } catch (err) {
         res.status(500).json({ message: 'Error fetching reward status' });
     }
+};
+
+const distributeActivationCommission = async (purchaser, amount) => {
+    const mongoose = require('mongoose');
+    // 20-Level Commission Rules (Total 35%)
+    const levelCommissions = {
+        1: 0.10, 2: 0.05, 3: 0.05, 4: 0.03, 5: 0.02,
+    };
+
+    let currentSponsorId = purchaser.sponsorId;
+    let level = 1;
+
+    console.log(`[ActivationRef] Starting 35% Distribution for ${purchaser.username} ($${amount})`);
+
+    while (currentSponsorId && level <= 20) {
+        try {
+            if (!mongoose.Types.ObjectId.isValid(currentSponsorId)) break;
+
+            const sponsor = await User.findById(currentSponsorId);
+            if (!sponsor) break;
+
+            // Determine rate
+            let rate = 0;
+            if (levelCommissions[level]) {
+                rate = levelCommissions[level];
+            } else if (level >= 6 && level <= 10) {
+                rate = 0.01; // 1%
+            } else if (level >= 11 && level <= 20) {
+                rate = 0.005; // 0.5%
+            }
+
+            if (rate > 0) {
+                const commission = amount * rate;
+                
+                // Credit to sponsor wallet
+                sponsor.balance += commission;
+                sponsor.totalEarned += commission;
+                await sponsor.save();
+
+                // Log Referral Income record
+                await ReferralIncome.create({
+                    userId: sponsor._id,
+                    fromUserId: purchaser._id,
+                    amount: commission,
+                    level: level,
+                    incomeType: 'Account Activation'
+                });
+                console.log(`[ActivationRef] L${level} -> ${sponsor.username} | Amt: $${commission.toFixed(2)} (${(rate*100).toFixed(1)}%)`);
+            }
+
+            // Move to next sponsor (Upline)
+            currentSponsorId = sponsor.sponsorId;
+            level++;
+        } catch (lvlErr) {
+            console.error(`[ActivationRef] Error at Level ${level}:`, lvlErr.message);
+            break;
+        }
+    }
+    console.log(`[ActivationRef] Distribution Finished for ${purchaser.username}`);
 };
 
 module.exports = { activateAccount, getActivationStatus, getDirectRewardStatus, creditDirectRewardInstallment };

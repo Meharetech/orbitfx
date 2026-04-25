@@ -7,7 +7,7 @@ dotenv.config();
 
 const seedRootUser = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGO_URI);
     console.log('Connected to MongoDB for seeding...');
 
     // Check if official root user already exists

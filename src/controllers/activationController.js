@@ -81,8 +81,8 @@ const activateAccount = async (req, res) => {
 
                 if (withinWindow) {
                     // Check if this user is L or R direct child of sponsor
-                    if (sponsor.leftChild?.toString()  === user._id.toString()) sponsor.firstLeftActivated  = true;
-                    if (sponsor.rightChild?.toString() === user._id.toString()) sponsor.firstRightActivated = true;
+                    if (user.position === 'L') sponsor.firstLeftActivated  = true;
+                    if (user.position === 'R') sponsor.firstRightActivated = true;
 
                     // BOTH sides now active → QUALIFY IMMEDIATELY
                     if (sponsor.firstLeftActivated && sponsor.firstRightActivated) {
